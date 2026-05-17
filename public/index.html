@@ -395,12 +395,17 @@
                     body: JSON.stringify({ url: url })
                 });
                 
+                const data = await response.json();
+                
                 if (!response.ok) {
-                    const error = await response.json();
-                    return { success: false, error: error.error };
+                    // Build detailed error message
+                    let errMsg = data.error || `HTTP ${response.status}`;
+                    if (data.statusText) errMsg += ` - ${data.statusText}`;
+                    if (data.firstBytes) errMsg += ` [bytes: ${data.firstBytes.substring(0, 30)}]`;
+                    if (data.responseBody) errMsg += ` [body: ${data.responseBody.substring(0, 80)}]`;
+                    return { success: false, error: errMsg };
                 }
                 
-                const data = await response.json();
                 if (data.success && data.base64) {
                     // Convert base64 to ArrayBuffer
                     const binary = atob(data.base64);
@@ -570,15 +575,12 @@
                     // Build slide XML
                     let slideXml = slide2XmlText;
                     
-                    // Fix title: change spAutoFit to normAutofit for the TITLE only
-                    // Also enlarge the title box to allow 2 lines without overlapping the subtitle
-                    // Original title: y=736600, cy=707886 (single line)
-                    // We'll keep y=736600 but increase cy to ~1400000 (two lines worth)
-                    // The subtitle starts at y=1535331, so we need to keep title height under ~800000
-                    // Better: use normAutofit which shrinks font instead of expanding box
+                    // Fix title: replace spAutoFit with normAutofit ONLY in the title's bodyPr
+                    // The title is the first txBody with size 4000 (40pt)
+                    // We use a targeted replacement: find the title's specific bodyPr
                     slideXml = slideXml.replace(
-                        /<a:off x="622300" y="736600"\/><a:ext cx="10680700" cy="707886"\/><a:prstGeom prst="rect"><a:avLst\/><\/a:prstGeom><a:noFill\/><\/p:spPr><p:txBody><a:bodyPr vert="horz" wrap="square" rtlCol="0"><a:spAutoFit\/>/,
-                        '<a:off x="622300" y="736600"/><a:ext cx="10680700" cy="707886"/><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr vert="horz" wrap="square" rtlCol="0"><a:normAutofit fontScale="100000" lnSpcReduction="0"/>'
+                        '<p:txBody><a:bodyPr vert="horz" wrap="square" rtlCol="0"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn="r" rtl="1"/><a:r><a:rPr lang="he-IL" sz="4000"',
+                        '<p:txBody><a:bodyPr vert="horz" wrap="square" rtlCol="0"><a:normAutofit fontScale="85000" lnSpcReduction="10000"/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn="r" rtl="1"/><a:r><a:rPr lang="he-IL" sz="4000"'
                     );
                     
                     // Replace texts
