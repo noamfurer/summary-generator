@@ -570,6 +570,17 @@
                     // Build slide XML
                     let slideXml = slide2XmlText;
                     
+                    // Fix title: change spAutoFit to normAutofit for the TITLE only
+                    // Also enlarge the title box to allow 2 lines without overlapping the subtitle
+                    // Original title: y=736600, cy=707886 (single line)
+                    // We'll keep y=736600 but increase cy to ~1400000 (two lines worth)
+                    // The subtitle starts at y=1535331, so we need to keep title height under ~800000
+                    // Better: use normAutofit which shrinks font instead of expanding box
+                    slideXml = slideXml.replace(
+                        /<a:off x="622300" y="736600"\/><a:ext cx="10680700" cy="707886"\/><a:prstGeom prst="rect"><a:avLst\/><\/a:prstGeom><a:noFill\/><\/p:spPr><p:txBody><a:bodyPr vert="horz" wrap="square" rtlCol="0"><a:spAutoFit\/>/,
+                        '<a:off x="622300" y="736600"/><a:ext cx="10680700" cy="707886"/><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr vert="horz" wrap="square" rtlCol="0"><a:normAutofit fontScale="100000" lnSpcReduction="0"/>'
+                    );
+                    
                     // Replace texts
                     slideXml = slideXml.replace(
                         /<a:t>כותרת האייטם<\/a:t>/,
