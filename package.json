@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סיכום חודשי - יוצר מצגות</title>
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #CF3045 0%, #F08F70 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 700px;
+            width: 100%;
+            padding: 40px;
+        }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: #CF3045; font-size: 28px; margin-bottom: 10px; }
+        .header p { color: #666; font-size: 14px; }
+        .template-badge {
+            display: inline-block;
+            background: #d4edda;
+            color: #155724;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .upload-section { margin-bottom: 20px; }
+        .upload-section-title {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .step-number {
+            background: #CF3045;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover { border-color: #CF3045; background: #fef5f6; }
+        .upload-area.dragover { border-color: #CF3045; background: #fde8eb; }
+        .upload-area.has-file { border-color: #28a745; background: #f4faf5; }
+        .upload-icon { font-size: 40px; margin-bottom: 8px; }
+        .upload-text { color: #666; margin-bottom: 4px; font-size: 14px; }
+        .upload-hint { color: #999; font-size: 12px; }
+        .file-name { color: #28a745; font-weight: 600; font-size: 14px; }
+        input[type="file"] { display: none; }
+        .button-group { display: flex; gap: 10px; margin-top: 20px; }
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #CF3045 0%, #F08F70 100%);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(207, 48, 69, 0.3);
+        }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: #e9ecef; color: #333; }
+        .btn-secondary:hover { background: #dee2e6; }
+        .progress-container { display: none; margin: 20px 0; }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #CF3045 0%, #F08F70 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .progress-text { font-size: 13px; color: #666; text-align: center; }
+        .error-message {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            color: #856404;
+            display: none;
+            font-size: 14px;
+        }
+        .error-message.show { display: block; }
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            color: #155724;
+            display: none;
+            font-size: 14px;
+        }
+        .success-message.show { display: block; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+        }
+        .stat-value { font-size: 18px; font-weight: 700; color: #CF3045; }
+        .stat-label { font-size: 11px; color: #666; margin-top: 2px; }
+        .log-area {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            display: none;
+        }
+        .log-area.show { display: block; }
+        .log-line { padding: 2px 0; color: #555; }
+        .log-line.success { color: #28a745; }
+        .log-line.warn { color: #ffc107; }
+        .log-line.error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 סיכום חודשי</h1>
+            <p>יצירת מצגת PowerPoint אוטומטית מאקסל - עם הורדת תמונות אוטומטית</p>
+            <div class="template-badge">✓ הכל אוטומטי - העלה Excel וזהו</div>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        
+        <div class="upload-section">
+            <div class="upload-section-title">
+                <span class="step-number">1</span>
+                העלה קובץ Excel
+            </div>
+            <div class="upload-area" id="excelUploadArea">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text" id="excelUploadText">גרור קובץ Excel או לחץ להעלאה</div>
+                <div class="upload-hint">תמוך ב-.xlsx ו-.xls</div>
+                <input type="file" id="excelInput" accept=".xlsx,.xls" />
+            </div>
+        </div>
+        
+        <div id="statsContainer" style="display: none;">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="statRows">0</div>
+                    <div class="stat-label">אייטמים</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statClient">-</div>
+                    <div class="stat-label">לקוח</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statMonth">-</div>
+                    <div class="stat-label">חודש</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">מתחיל עיבוד...</div>
+        </div>
+        
+        <div class="log-area" id="logArea"></div>
+        
+        <div class="button-group">
+            <button class="btn-primary" id="generateBtn" disabled>
+                💾 צור PowerPoint
+            </button>
+            <button class="btn-secondary" id="clearBtn" style="display: none;">
+                🔄 נקה
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let excelData = null;
+        let templateZip = null;
+        let clientName = '';
+        let monthName = '';
+        
+        const excelUploadArea = document.getElementById('excelUploadArea');
+        const excelInput = document.getElementById('excelInput');
+        const excelUploadText = document.getElementById('excelUploadText');
+        const generateBtn = document.getElementById('generateBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const statsContainer = document.getElementById('statsContainer');
+        const logArea = document.getElementById('logArea');
+
+        // Load template from server on page load
+        async function loadTemplate() {
+            try {
+                const response = await fetch('/template.pptx');
+                if (!response.ok) throw new Error('Failed to load template');
+                const buffer = await response.arrayBuffer();
+                templateZip = await JSZip.loadAsync(buffer);
+                console.log('Template loaded successfully');
+            } catch (error) {
+                showError('שגיאה בטעינת הטמפלט: ' + error.message);
+            }
+        }
+        loadTemplate();
+
+        function log(message, type = '') {
+            const line = document.createElement('div');
+            line.className = 'log-line ' + type;
+            line.textContent = message;
+            logArea.appendChild(line);
+            logArea.scrollTop = logArea.scrollHeight;
+            logArea.classList.add('show');
+        }
+
+        // Excel upload
+        excelUploadArea.addEventListener('click', () => excelInput.click());
+        excelUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            excelUploadArea.classList.add('dragover');
+        });
+        excelUploadArea.addEventListener('dragleave', () => {
+            excelUploadArea.classList.remove('dragover');
+        });
+        excelUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            excelUploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleExcelFile(e.dataTransfer.files[0]);
+            }
+        });
+        excelInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleExcelFile(e.target.files[0]);
+            }
+        });
+
+        function handleExcelFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    excelData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+                    
+                    let headerRow = null;
+                    for (let i = 0; i <= 5 && i < excelData.length; i++) {
+                        const row = excelData[i];
+                        if (row && row.some(cell => cell && String(cell).includes('Name'))) {
+                            headerRow = i;
+                            break;
+                        }
+                    }
+                    
+                    if (headerRow === null) {
+                        showError('לא נמצאה כותרת Name באקסל');
+                        return;
+                    }
+                    
+                    const headers = excelData[headerRow] || [];
+                    
+                    if (excelData.length > headerRow + 1) {
+                        clientName = String(excelData[headerRow + 1][1] || 'לקוח').trim();
+                    }
+                    
+                    const dateColIdx = headers.findIndex(h => String(h).includes('תאריך'));
+                    if (dateColIdx >= 0 && excelData.length > headerRow + 1) {
+                        const firstDate = String(excelData[headerRow + 1][dateColIdx] || '');
+                        const dateParts = firstDate.split('-');
+                        if (dateParts.length >= 2) {
+                            const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+                            const monthIdx = parseInt(dateParts[1]) - 1;
+                            if (monthIdx >= 0 && monthIdx < 12) {
+                                monthName = monthNames[monthIdx];
+                            }
+                        }
+                    }
+                    
+                    let rowCount = 0;
+                    const titleColIdx = headers.findIndex(h => h === 'Name');
+                    for (let i = headerRow + 1; i < excelData.length; i++) {
+                        if (excelData[i][titleColIdx] && String(excelData[i][titleColIdx]).trim()) {
+                            rowCount++;
+                        }
+                    }
+                    
+                    document.getElementById('statRows').textContent = rowCount;
+                    document.getElementById('statClient').textContent = clientName;
+                    document.getElementById('statMonth').textContent = monthName || '-';
+                    statsContainer.style.display = 'block';
+                    
+                    excelUploadArea.classList.add('has-file');
+                    excelUploadText.innerHTML = '✅ <span class="file-name">' + file.name + '</span>';
+                    
+                    if (templateZip) {
+                        generateBtn.disabled = false;
+                        clearBtn.style.display = 'inline-block';
+                    }
+                } catch (error) {
+                    showError('שגיאה בקריאת האקסל: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.classList.add('show');
+        }
+
+        function updateProgress(percent, text) {
+            progressFill.style.width = percent + '%';
+            progressText.textContent = text;
+        }
+        
+        function escapeXml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+        
+        // Download image via our serverless API (bypasses CORS!)
+        async function downloadImage(url) {
+            try {
+                const response = await fetch('/api/download-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    return { success: false, error: error.error };
+                }
+                
+                const data = await response.json();
+                if (data.success && data.base64) {
+                    // Convert base64 to ArrayBuffer
+                    const binary = atob(data.base64);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) {
+                        bytes[i] = binary.charCodeAt(i);
+                    }
+                    return { 
+                        success: true, 
+                        buffer: bytes.buffer, 
+                        extension: data.extension,
+                        size: data.size
+                    };
+                }
+                return { success: false, error: 'No data returned' };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+        
+        function getImagePosition(slotIndex, numImages) {
+            // Returns [x, y, cx, cy] in EMU
+            if (numImages === 1) {
+                return [2540000, 2362200, 7112000, 4191000];
+            } else if (numImages === 2) {
+                const positions = [
+                    [622300, 2362200, 5400000, 4000000],
+                    [6200000, 2362200, 5400000, 4000000]
+                ];
+                return positions[slotIndex];
+            } else if (numImages === 3) {
+                const positions = [
+                    [622300, 2362200, 5181600, 3606800],
+                    [5962650, 2362200, 2165350, 1714500],
+                    [5962650, 4254500, 2165350, 1714500]
+                ];
+                return positions[slotIndex];
+            } else {
+                // 4+ images: 2x2 grid
+                const positions = [
+                    [622300, 2362200, 3700000, 1900000],
+                    [4500000, 2362200, 3700000, 1900000],
+                    [622300, 4400000, 3700000, 1900000],
+                    [4500000, 4400000, 3700000, 1900000]
+                ];
+                return positions[Math.min(slotIndex, 3)];
+            }
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            if (!excelData || !templateZip) return;
+            
+            try {
+                progressContainer.style.display = 'block';
+                logArea.innerHTML = '';
+                generateBtn.disabled = true;
+                errorMessage.classList.remove('show');
+                successMessage.classList.remove('show');
+                
+                updateProgress(5, 'מכין טמפלט...');
+                log('🚀 מתחיל יצירת מצגת');
+                
+                // Clone the template into a new zip
+                const newZip = new JSZip();
+                const allFiles = Object.keys(templateZip.files);
+                for (const fileName of allFiles) {
+                    const file = templateZip.files[fileName];
+                    if (!file.dir) {
+                        const data = await file.async('uint8array');
+                        newZip.file(fileName, data);
+                    }
+                }
+                
+                log('✓ טמפלט נטען');
+                
+                // Find header row and columns
+                let headerRow = null;
+                for (let i = 0; i <= 5 && i < excelData.length; i++) {
+                    const row = excelData[i];
+                    if (row && row.some(cell => cell && String(cell).includes('Name'))) {
+                        headerRow = i;
+                        break;
+                    }
+                }
+                
+                const headers = excelData[headerRow] || [];
+                const titleColIdx = headers.findIndex(h => h === 'Name');
+                const dateColIdx = headers.findIndex(h => String(h).includes('תאריך'));
+                const mediaColIdx = headers.findIndex(h => String(h).includes('כלי תקשורת'));
+                const linkColIdx = headers.findIndex(h => String(h).includes('קישור'));
+                const fileColIdx = headers.findIndex(h => String(h).includes('קובץ'));
+                
+                // Get template slide XMLs
+                const slide1XmlText = await templateZip.file('ppt/slides/slide1.xml').async('string');
+                const slide2XmlText = await templateZip.file('ppt/slides/slide2.xml').async('string');
+                
+                // Update title slide
+                let updatedSlide1 = slide1XmlText;
+                updatedSlide1 = updatedSlide1.replace(/שם הלקוח/g, escapeXml(clientName));
+                if (monthName) {
+                    updatedSlide1 = updatedSlide1.replace(/סיכום חודש נובמבר/g, escapeXml('סיכום חודש ' + monthName));
+                }
+                newZip.file('ppt/slides/slide1.xml', updatedSlide1);
+                log('✓ שקף 1 (כותרת) עודכן: ' + clientName + ' - ' + monthName);
+                
+                // Collect data rows
+                const dataRows = [];
+                for (let i = headerRow + 1; i < excelData.length; i++) {
+                    const row = excelData[i];
+                    if (row[titleColIdx] && String(row[titleColIdx]).trim()) {
+                        dataRows.push({
+                            title: String(row[titleColIdx] || ''),
+                            date: String(row[dateColIdx] || ''),
+                            media: String(row[mediaColIdx] || ''),
+                            link: String(row[linkColIdx] || ''),
+                            files: String(row[fileColIdx] || '')
+                        });
+                    }
+                }
+                
+                log('📋 ' + dataRows.length + ' אייטמים נמצאו');
+                
+                // Get max image number from template
+                let imageCounter = 0;
+                const mediaFiles = Object.keys(templateZip.files).filter(f => f.startsWith('ppt/media/'));
+                for (const mf of mediaFiles) {
+                    const match = mf.match(/image(\d+)\./);
+                    if (match) {
+                        imageCounter = Math.max(imageCounter, parseInt(match[1]));
+                    }
+                }
+                
+                // Process each item
+                const slidesData = [];
+                
+                for (let i = 0; i < dataRows.length; i++) {
+                    const item = dataRows[i];
+                    const progress = 10 + Math.floor((i / dataRows.length) * 75);
+                    updateProgress(progress, `אייטם ${i + 1}/${dataRows.length}: ${item.title.substring(0, 30)}...`);
+                    log(`\n📄 אייטם ${i + 1}/${dataRows.length}: ${item.title.substring(0, 50)}`);
+                    
+                    // Download images
+                    const itemImages = []; // {fileName, buffer}
+                    if (item.files) {
+                        const urls = item.files.split(',').map(u => u.trim()).filter(u => u).slice(0, 3);
+                        log(`  🔗 ${urls.length} קישורים לתמונות`);
+                        
+                        for (let j = 0; j < urls.length; j++) {
+                            log(`  ⬇️ מוריד תמונה ${j + 1}...`);
+                            const result = await downloadImage(urls[j]);
+                            if (result.success) {
+                                imageCounter++;
+                                const imgName = `image${imageCounter}.${result.extension}`;
+                                itemImages.push({ fileName: imgName, buffer: result.buffer });
+                                log(`  ✓ הורד (${result.size.toLocaleString()} bytes)`, 'success');
+                            } else {
+                                log(`  ✗ נכשל: ${result.error}`, 'warn');
+                            }
+                        }
+                    }
+                    
+                    // Add images to zip
+                    for (const img of itemImages) {
+                        newZip.file('ppt/media/' + img.fileName, img.buffer);
+                    }
+                    
+                    // Build slide XML
+                    let slideXml = slide2XmlText;
+                    
+                    // Replace texts
+                    slideXml = slideXml.replace(
+                        /<a:t>כותרת האייטם<\/a:t>/,
+                        `<a:t>${escapeXml(item.title)}</a:t>`
+                    );
+                    slideXml = slideXml.replace(
+                        /<a:t>תאריך פרסום \| כלי תקשורת<\/a:t>/,
+                        `<a:t>${escapeXml(item.date + ' | ' + item.media)}</a:t>`
+                    );
+                    slideXml = slideXml.replace(
+                        /<a:t>קישור \(מיושר משמאל לימין\)<\/a:t>/,
+                        `<a:t>${escapeXml(item.link)}</a:t>`
+                    );
+                    
+                    // Replace placeholders with images
+                    const placeholders = [
+                        { pattern: /<p:sp><p:nvSpPr><p:cNvPr id="5" name="מלבן 4"[\s\S]*?<\/p:sp>/, slotIdx: 0 },
+                        { pattern: /<p:sp><p:nvSpPr><p:cNvPr id="7" name="מלבן 6"[\s\S]*?<\/p:sp>/, slotIdx: 1 },
+                        { pattern: /<p:sp><p:nvSpPr><p:cNvPr id="8" name="מלבן 7"[\s\S]*?<\/p:sp>/, slotIdx: 2 }
+                    ];
+                    
+                    // Build relationships
+                    let slideRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+                    slideRels += '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+                    slideRels += '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>';
+                    
+                    for (let j = 0; j < placeholders.length; j++) {
+                        if (j < itemImages.length) {
+                            const rId = `rId${j + 2}`;
+                            slideRels += `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${itemImages[j].fileName}"/>`;
+                            
+                            const [x, y, cx, cy] = getImagePosition(placeholders[j].slotIdx, itemImages.length);
+                            const picXml = `<p:pic><p:nvPicPr><p:cNvPr id="${100 + j}" name="Picture ${j + 1}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+                            
+                            slideXml = slideXml.replace(placeholders[j].pattern, picXml);
+                        } else {
+                            slideXml = slideXml.replace(placeholders[j].pattern, '');
+                        }
+                    }
+                    
+                    slideRels += '</Relationships>';
+                    
+                    slidesData.push({ xml: slideXml, rels: slideRels });
+                }
+                
+                updateProgress(85, 'בונה את המצגת...');
+                log('\n🔨 בונה את הקובץ הסופי');
+                
+                // Remove original slide2
+                newZip.remove('ppt/slides/slide2.xml');
+                newZip.remove('ppt/slides/_rels/slide2.xml.rels');
+                
+                // Add all item slides
+                const totalSlides = 1 + slidesData.length;
+                for (let i = 0; i < slidesData.length; i++) {
+                    const slideNum = i + 2;
+                    newZip.file(`ppt/slides/slide${slideNum}.xml`, slidesData[i].xml);
+                    newZip.file(`ppt/slides/_rels/slide${slideNum}.xml.rels`, slidesData[i].rels);
+                }
+                
+                // Update [Content_Types].xml
+                let contentTypes = await templateZip.file('[Content_Types].xml').async('string');
+                contentTypes = contentTypes.replace(/<Override PartName="\/ppt\/slides\/slide\d+\.xml"[^/]*\/>/g, '');
+                let newOverrides = '';
+                for (let i = 1; i <= totalSlides; i++) {
+                    newOverrides += `<Override PartName="/ppt/slides/slide${i}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
+                }
+                contentTypes = contentTypes.replace('</Types>', newOverrides + '</Types>');
+                newZip.file('[Content_Types].xml', contentTypes);
+                
+                // Update presentation.xml.rels
+                let presRels = await templateZip.file('ppt/_rels/presentation.xml.rels').async('string');
+                const rids = presRels.match(/Id="rId(\d+)"/g) || [];
+                let maxRid = 0;
+                for (const r of rids) {
+                    maxRid = Math.max(maxRid, parseInt(r.match(/\d+/)[0]));
+                }
+                
+                presRels = presRels.replace(/<Relationship[^>]*slides\/slide\d+\.xml[^>]*\/>/g, '');
+                
+                const slideRids = [];
+                for (let i = 1; i <= totalSlides; i++) {
+                    maxRid++;
+                    slideRids.push(maxRid);
+                    const newRel = `<Relationship Id="rId${maxRid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i}.xml"/>`;
+                    presRels = presRels.replace('</Relationships>', newRel + '</Relationships>');
+                }
+                newZip.file('ppt/_rels/presentation.xml.rels', presRels);
+                
+                // Update presentation.xml
+                let presXml = await templateZip.file('ppt/presentation.xml').async('string');
+                let newSldIdLst = '<p:sldIdLst>';
+                let sldId = 256;
+                for (const rid of slideRids) {
+                    newSldIdLst += `<p:sldId id="${sldId}" r:id="rId${rid}"/>`;
+                    sldId++;
+                }
+                newSldIdLst += '</p:sldIdLst>';
+                presXml = presXml.replace(/<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/, newSldIdLst);
+                newZip.file('ppt/presentation.xml', presXml);
+                
+                log(`✓ ${totalSlides} שקפים נבנו (1 כותרת + ${slidesData.length} אייטמים)`, 'success');
+                
+                updateProgress(95, 'יוצר קובץ ZIP...');
+                
+                const blob = await newZip.generateAsync({
+                    type: 'blob',
+                    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+                
+                const fileName = `סיכום חודש - ${clientName}${monthName ? ' - ' + monthName : ''}.pptx`;
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                updateProgress(100, 'הושלם!');
+                log('🎉 המצגת הורדה בהצלחה!', 'success');
+                showSuccess(`המצגת "${fileName}" נוצרה והורדה בהצלחה!`);
+                
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    generateBtn.disabled = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error(error);
+                showError('שגיאה ביצירת המצגת: ' + error.message);
+                log('❌ שגיאה: ' + error.message, 'error');
+                progressContainer.style.display = 'none';
+                generateBtn.disabled = false;
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            excelData = null;
+            clientName = '';
+            monthName = '';
+            excelInput.value = '';
+            excelUploadArea.classList.remove('has-file');
+            excelUploadText.innerHTML = 'גרור קובץ Excel או לחץ להעלאה';
+            statsContainer.style.display = 'none';
+            generateBtn.disabled = true;
+            clearBtn.style.display = 'none';
+            progressContainer.style.display = 'none';
+            logArea.classList.remove('show');
+            logArea.innerHTML = '';
+            errorMessage.classList.remove('show');
+            successMessage.classList.remove('show');
+        });
+    </script>
+</body>
+</html>
