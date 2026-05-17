@@ -61,34 +61,45 @@ export default async function handler(req, res) {
     const buffer = Buffer.from(arrayBuffer);
     
     // Detect image type from magic bytes
-    let mimeType = 'image/png';
-    let extension = 'png';
+    let mimeType = null;
+    let extension = null;
     
-    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+    if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
       mimeType = 'image/png';
       extension = 'png';
-    } else if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+    } else if (buffer.length >= 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
       mimeType = 'image/jpeg';
       extension = 'jpg';
-    } else if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    } else if (buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
       mimeType = 'image/gif';
       extension = 'gif';
-    } else {
-      // Try to use content-type header
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('jpeg') || contentType.includes('jpg')) {
-        mimeType = 'image/jpeg';
-        extension = 'jpg';
-      } else if (contentType.includes('gif')) {
-        mimeType = 'image/gif';
-        extension = 'gif';
-      }
     }
     
-    // Verify it's actually an image (size check)
+    // If we couldn't detect from magic bytes, this is NOT a valid image - reject it
+    // (Don't trust content-type alone, the server might return HTML with image/* type)
+    if (!mimeType) {
+      // Try to get first bytes to debug
+      const firstBytes = Array.from(buffer.slice(0, 16))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join(' ');
+      
+      // Check if it looks like HTML (error page)
+      const startStr = buffer.slice(0, 100).toString('utf-8').toLowerCase();
+      const looksLikeHtml = startStr.includes('<html') || startStr.includes('<!doctype');
+      
+      return res.status(400).json({ 
+        error: looksLikeHtml ? 'Server returned HTML page (likely login required)' : 'Downloaded content is not a valid image',
+        firstBytes: firstBytes,
+        size: buffer.length,
+        contentType: response.headers.get('content-type'),
+        url: url
+      });
+    }
+    
+    // Verify size is reasonable
     if (buffer.length < 100) {
       return res.status(400).json({ 
-        error: 'Downloaded content is too small to be a valid image',
+        error: 'Downloaded image is too small to be valid',
         size: buffer.length
       });
     }
